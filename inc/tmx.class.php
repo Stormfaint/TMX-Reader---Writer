@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Reader et Writer de fichiers de TMX en PHP
  *
@@ -10,66 +9,71 @@
  * @since	   1.0
  * @link       https://github.com/Stormfaint
  */
-
 class Tmx{
-	
+
 	/**
      * Nom du fichier TMX
      *
      * @var string
      */
 	private $_file = null;
-	
+
 	/**
      * Traductions extraites de fichier TMX
      *
      * @var array
      */
 	private $_data = array();
-	
+	/**
+	 * Langue source du TMX
+	 *
+	 * @var string
+	 */
+	private $_srcLang = '';
 	/**
      * Contexte : fichier existant ou non (création)
      *
      * @var boolean
      */
 	private $_creation = false;
-	
+
 	/**
      * Mode debug (retour d'exceptions)
      *
      * @var boolean
      */
 	private $_debug = false;
-	
+
 	/**
      * Version par défaut d'XML utilisée
      */
 	const DOCUMENT = '1.0';
-	
+
 	/**
      * Version par défaut de TMX utilisé
      */
 	const VERSION = '1.4';
-	
+
 	/**
      * Encodage par défaut du fichier
      */
 	const ENCODAGE = 'UTF-8';
-	
+
 	/**
      * Sauvegarde d'un backup du fichier avant modification
      */
 	const BACKUP = true;
-	
+
 	/**
      * Sauvegarde réalisée à chaque modification à l'aide d'un timestamp
      */
 	const MULTIBACKUP = false;
-	
+
 	/**
      * Constructeur
      *
      * @param  string $file
+     * @param  string $srcLang
      * @param  boolean $create
 	 * @param  null|string $encodage
      * @param  boolean $debug
@@ -79,8 +83,9 @@ class Tmx{
      * @throws Exception si le fichier n'existe pas
      * @return boolean
      */
-	public function __construct($file, $create = false, $encodage = null, $debug = false){
+	public function __construct($file, $srcLang, $create = false, $encodage = null, $debug = false){
 		$this->_debug = $debug;
+		$this->_srcLang=$srcLang;
 		if(!class_exists('XMLReader') || !class_exists('XMLWriter')){
 			if($this->_debug)
 				throw new Exception('PHP extension libxml is required : http://www.php.net/manual/fr/book.libxml.php');
@@ -114,7 +119,7 @@ class Tmx{
 		}
 		return true;
 	}
-	
+
 	/**
      * Méthode permettant de lire le fichier et charger les traductions
      *
@@ -123,7 +128,7 @@ class Tmx{
      * @return Tmx
      */
 	private function read($encodage = null){
-		if($encodage === null) $encodage = self::ENCODAGE; 
+		if($encodage === null) $encodage = self::ENCODAGE;
 		if($this->_file === null){
 			if($this->_debug)
 				throw new Exception('No file.');
@@ -136,7 +141,7 @@ class Tmx{
 				switch($reader->localName){
 					case 'tu': $tuid = $reader->getAttribute('tuid'); break;
 					case 'tuv': $xmlLang = $reader->xmlLang; break;
-					case 'seg': 
+					case 'seg':
 						if($reader->read()){
 							if(
 								($reader->nodeType == XMLReader::TEXT || $reader->nodeType == XMLReader::CDATA)
@@ -152,7 +157,7 @@ class Tmx{
 		$reader->close();
 		return $this;
 	}
-	
+
 	/**
 	 * Méthode d'écrire dans un fichier TMX et de l'enregistrer
      *
@@ -174,9 +179,18 @@ class Tmx{
 		$writer->writeAttribute('version', self::VERSION);
 		$writer->setIndentString("\t");
 		$writer->setIndent(true);
+		$writer->startElement('header');
+		$writer->writeAttribute('adminlang', 'en');
+		$writer->writeAttribute('creationtool', 'Stormfaint/TMX-Reader---Writer');
+		$writer->writeAttribute('creationtoolversion', '1.0');
+		$writer->writeAttribute('datatype', 'xml');
+		$writer->writeAttribute('o-tmf', 'XLIFF');
+		$writer->writeAttribute('segtype', 'block');
+		$writer->writeAttribute('srclang', $this->_srcLang);
+		$writer->endElement();
 		$writer->startElement('body');
 		foreach($this->_data as $tuid => $tuvs){
-			$writer->startElement('tu'); 
+			$writer->startElement('tu');
 			$writer->writeAttribute('tuid', $tuid);
 			foreach($tuvs as $xmlLang => $value){
 				$writer->startElement('tuv');
@@ -198,7 +212,7 @@ class Tmx{
 		@fwrite($file, $writer->outputMemory(true));
 		return $this;
 	}
-	
+
 	/**
 	 * Méthode permettant d'ajouter une traduction
      *
@@ -212,7 +226,7 @@ class Tmx{
 		if($xmlLang != false && $value != false) $this->_data[$tuid][$xmlLang] = $value;
 		return $this;
 	}
-	
+
 	/**
 	 * Méthode permettant d'ajouter une ou plusieurs traductions à l'aide d'un tableau
      *
@@ -229,7 +243,7 @@ class Tmx{
 		}
 		return $this;
 	}
-	
+
 	/**
 	 * Méthode permettant de supprimer une traduction
      *
@@ -252,7 +266,7 @@ class Tmx{
 		}
 		return $this;
 	}
-	
+
 	/**
 	 * Méthode permettant de récupérer les traductions d'un fichier préalablement chargé,
 	 * selon un identifiant, un identifiant et une langue, ou l'ensemble d'un fichier
@@ -262,7 +276,7 @@ class Tmx{
      * @return boolean|string|array
      */
 	public function get($tuid = false, $xmlLang = false){
-		
+
 		if($xmlLang && $tuid){
 			if(array_key_exists($tuid, $this->_data)){
 				if(array_key_exists($xmlLang, $this->_data[$tuid])){
@@ -280,7 +294,7 @@ class Tmx{
 		}
 		return $this->_data;
 	}
-	
+
 	/**
 	 * Méthode permettant de récupérer l'ensemble des traductions en une langue donnée
      *
